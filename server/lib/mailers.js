@@ -9,6 +9,7 @@ const openpgpEncrypt = require('nodemailer-openpgp').openpgpEncrypt;
 const sendConfigurations = require('../models/send-configurations');
 const { ZoneMTAType, MailerType } = require('../../shared/send-configurations');
 const builtinZoneMta = require('./builtin-zone-mta');
+const GraphTransport = require('./ms-graph-transport');
 
 const contextHelpers = require('./context-helpers');
 const settings = require('../models/settings');
@@ -251,11 +252,39 @@ async function _createTransport(sendConfiguration) {
             sendingRate
         };
 
+    } else if (mailerType === MailerType.MICROSOFT_GRAPH) {
+        const sendingRate = mailerSettings.throttling / 3600;  // convert to messages/second
+        const credentials = new identity.ClientSecretCredential(mailerSettings.tenantID, mailerSettings.clientID, mailerSettings.clientSecret);
+        const scopes = ["https://graph.microsoft.com/.default"];
+        const authProvider = new azure.TokenCredentialAuthenticationProvider(credentials, { scopes });
+
+        transportOptions = {
+            graph: {
+                tenantID: mailerSettings.tenantID,
+                clientID: mailerSettings.clientID,
+                clientSecret: mailerSettings.clientSecret,
+                scopes: ["https://graph.microsoft.com/.default"],
+                debug: true
+            },
+            debug: mailerSettings.logTransactions,
+            logger: mailerSettings.logTransactions ? {
+                debug: logFunc.bind(null, 'verbose'),
+                info: logFunc.bind(null, 'info'),
+                error: logFunc.bind(null, 'error')
+            } : false,
+            maxConnections: mailerSettings.maxConnections,
+            maxMessages: mailerSettings.maxMessages,
+            sendingRate
+        };
+
     } else {
         throw new Error('Invalid mail transport');
     }
 
-    const transport = nodemailer.createTransport(transportOptions, config.nodemailer);
+    const transport = mailerType === MailerType.MICROSOFT_GRAPH ?
+        nodemailer.createTransport(new GraphTransport(transportOptions)) :
+        nodemailer.createTransport(transportOptions, config.nodemailer);
+
     transport.sendMailAsync = bluebird.promisify(transport.sendMail.bind(transport));
 
     transport.use('stream', openpgpEncrypt({

@@ -11,7 +11,8 @@ import mailtrainConfig from 'mailtrainConfig';
 export const mailerTypesOrder = [
     MailerType.ZONE_MTA,
     MailerType.GENERIC_SMTP,
-    MailerType.AWS_SES
+    MailerType.AWS_SES,
+    MailterType.MICROSOFT_GRAPH
 ];
 
 export function getMailerTypes(t) {
@@ -158,13 +159,15 @@ export function getMailerTypes(t) {
     const typeNames = {
         [MailerType.GENERIC_SMTP]: t('genericSmtp'),
         [MailerType.ZONE_MTA]: t('zoneMta'),
-        [MailerType.AWS_SES]: t('amazonSes')
+        [MailerType.AWS_SES]: t('amazonSes'),
+        [MailerType.MICROSOFT_GRAPH]: t('microsoftGraph')
     };
 
     const typeOptions = [
         { key: MailerType.GENERIC_SMTP, label: typeNames[MailerType.GENERIC_SMTP]},
         { key: MailerType.ZONE_MTA, label: typeNames[MailerType.ZONE_MTA]},
-        { key: MailerType.AWS_SES, label: typeNames[MailerType.AWS_SES]}
+        { key: MailerType.AWS_SES, label: typeNames[MailerType.AWS_SES]},
+        { key: MailerType.MICROSOFT_GRAPH, label: typeNames[MailerType.MICROSOFT_GRAPH]}
     ];
 
     const smtpEncryptionOptions = [
@@ -387,6 +390,54 @@ export function getMailerTypes(t) {
         },
         validate: state => {
             validateCommon(state);
+        }
+    };
+
+    mailerTypes[MailerType.MICROSOFT_GRAPH] = {
+        typeName: typeNames[MailerType.MICROSOFT_GRAPH],
+        getForm: owner =>
+            <div>
+                <Fieldset label={t('mailerSettings')}>
+                    <Dropdown id="mailer_type" label={t('mailerType')} options={typeOptions}/>
+                    <InputField id="tenantID" label={t('tenantID')} placeholder={t('microsoftTenantID')}/>
+                    <InputField id="clientID" label={t('clientID')} placeholder={t('microsoftClientID')}/>
+                    <InputField id="clientSecret" label={t('clientSecret')} placeholder={t('microsoftClientSecret')} type="password"/>
+                </Fieldset>
+                <Fieldset label={t('advancedMailerSettings')}>
+                    <CheckBox id="logTransactions" text={t('logSmtpTransactions')}/>
+                    <InputField id="maxConnections" label={t('maxConnections')} placeholder={t('theCountOfMaxConnectionsEg10')} help={t('theCountOfMaximumSimultaneousConnections')}/>
+                    <InputField id="smtpMaxMessages" label={t('maxMessages')} placeholder={t('theCountOfMaxMessagesEg100')} help={t('theNumberOfMessagesToSendThroughASingle')}/>
+                    <InputField id="throttling" label={t('throttling')} placeholder={t('messagesPerHourEg1000')} help={t('maximumNumberOfMessagesToSendInAnHour')}/>
+                </Fieldset>
+            </div>,
+        initData: () => ({
+            ...getInitCommon(),
+            smtpMaxMessages: '100',
+            tenantID: '',
+            clientID: '',
+            clientSecret: ''
+        }),
+        afterLoad: data => {
+            afterLoadCommon(data);
+            data.smtpMaxMessages = data.mailer_settings.maxMessages;
+            data.tenantID = data.mailer_settings.tenantID;
+            data.clientID = data.mailer_settings.clientID;
+            data.clientSecret = data.mailer_settings.clientSecret;
+        },
+        beforeSave: data => {
+            beforeSaveCommon(data);
+            data.mailer_settings.maxMessages = Number(data.smtpMaxMessages);
+            data.mailer_settings.tenantID = data.tenantID;
+            data.mailer_settings.clientID = data.clientID;
+            data.mailer_settings.clientSecret = data.clientSecret;
+            clearBeforeSave(data);
+        },
+        afterTypeChange: mutState => {
+            initFieldsIfMissing(mutState, MailerType.MICROSOFT_GRAPH);
+        },
+        validate: state => {
+            validateCommon(state);
+            validateNumber(state, 'smtpMaxMessages', 'Max messages');
         }
     };
 

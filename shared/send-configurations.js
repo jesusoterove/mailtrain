@@ -3,7 +3,8 @@
 const MailerType = {
     GENERIC_SMTP: 'generic_smtp',
     ZONE_MTA: 'zone_mta',
-    AWS_SES: 'aws_ses'
+    AWS_SES: 'aws_ses',
+    MICROSOFT_GRAPH: 'microsoft_graph'
 };
 
 const ZoneMTAType = {
